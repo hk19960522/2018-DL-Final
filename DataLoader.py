@@ -40,30 +40,45 @@ def load_data(path):
         if len(contents) % 10 is not 0:
             print('Error: File Format is wrong. Length of file is not match.')
             exit(0)
-
+        # slice data
         for idx in range(0, int(len(contents)/10)):
             pData = PersonData(contents[idx*10: idx*10+10])
             if pData.get_id() in data_dict:
                 data_dict[pData.get_id()].append(make_data(pData))
             else:
                 data_dict[pData.get_id()] = [make_data(pData)]
+        # sort data by frame
+        for item in data_dict:
+            data_dict[item] = sorted(data_dict[item], key=lambda l: l[0])
+            data_dict[item].append(0)  # index of item
     else:
         print('Error: File is not exist.')
         exit(0)
 
+def get_frame_data(frame):
+    data = {}
+    for key, value in data_dict.items():
+        idx = value[-1]
+        if idx < len(value)-1 and value[idx][0] == frame:
+            data[key] = value[idx]
+            value[-1] += 1
+    return data
+
 
 load_data('test.txt')
 
-
+'''
 f = open('result', 'w')
 
 for item in data_dict:
     f.write(str(item) + ": \n")
-    #print(item, ": ")
     data_dict[item] = sorted(data_dict[item], key=lambda s: s[0])
     for d in data_dict[item]:
         f.write(str(d)+'\n')
-        #print(d)
-    #print(data_dict[item])
-    
+'''
+d = get_frame_data(0)
+for key, value in d.items():
+    print(key)
+    print(value, '\n')
+
 
