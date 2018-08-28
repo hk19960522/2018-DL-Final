@@ -1,6 +1,7 @@
 import os
 
-class PersonData():
+
+class PersonData:
     def __init__(self, content):
         self.id = (content[-1], content[0])  # type and ID
         self.state = content[6: 9]  # 3 0/1 state
@@ -27,6 +28,7 @@ class PersonData():
 
 data_dict = {}
 
+
 def make_data(d):
     pData = [d.get_frame(), d.get_pos(), d.get_bound_box()]
     return pData
@@ -52,8 +54,9 @@ def load_data(path):
             data_dict[item] = sorted(data_dict[item], key=lambda l: l[0])
             data_dict[item].append(0)  # index of item
     else:
-        print('Error: File is not exist.')
+        print('Error: File %s is not exist.'.format(path))
         exit(0)
+
 
 def get_frame_data(frame):
     data = {}
