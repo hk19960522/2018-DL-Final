@@ -10,6 +10,7 @@ class PersonData:
         self.bound_box = [list(map(int, sublist)) for sublist in self.bound_box]
         self.position = [(self.bound_box[0][0]+self.bound_box[1][0])/2, (self.bound_box[0][1]+self.bound_box[1][1])/2]
         self.frame = int(content[5])  # appear frame num
+        self.type = content[-1]
 
     def get_id(self):
         return self.id
@@ -26,12 +27,15 @@ class PersonData:
     def get_frame(self):
         return self.frame
 
+    def get_type(self):
+        return self.type
+
 
 data_dict = {}
 
 
 def make_data(d):
-    pData = [d.get_frame(), d.get_pos(), d.get_bound_box()]
+    pData = [d.get_frame(), d.get_pos(), d.get_type()]
     return pData
 
 
@@ -53,11 +57,10 @@ def load_data(path):
         # sort data by frame
         for item in data_dict:
             data_dict[item] = sorted(data_dict[item], key=lambda l: l[0])
-            data_dict[item].append(0)  # index of item
+            #data_dict[item].append(0)  # index of item
     else:
         print('Error: File %s is not exist.'.format(path))
         exit(0)
-
 
 
 #  need to call this function from 0 to the end, or it will not work
@@ -71,6 +74,42 @@ def get_frame_data(frame):
     return data
 
 
+def get_frame_data(start, end, step):
+    data = {}
+    for key, value in data_dict.items():
+        row_data = []
+        in_range = False
+        for (idx, pData) in enumerate(value):
+            if pData[0] == start:
+                in_range = True
+                #print(key)
+                for cnt in range(0, end-start+1):
+                    #print('Hi', value[idx + cnt])
+                    if idx + cnt >= len(value) or (start + cnt) != value[idx + cnt][0]:
+                        #print('Error')
+                        in_range = False
+                        break
+
+                    if cnt % step == 0:
+                        new_data = value[idx + cnt][1] + get_one_hot(value[idx + cnt][-1])
+                        row_data.append(new_data)
+                break
+        if in_range:
+            data[key] = row_data
+    return data
+
+
+def get_one_hot(label):
+    if label == '"Pedestrian"':
+        one_hot = [1, 0, 0]
+    elif label == '"Biker"':
+        one_hot = [0, 1, 0]
+    elif label == '"Skater"':
+        one_hot = [0, 0, 1]
+    else :
+        one_hot = [0, 0, 0]
+    return one_hot
+
 load_data('test.txt')
 
 ''' 
@@ -81,10 +120,15 @@ for item in data_dict:
     data_dict[item] = sorted(data_dict[item], key=lambda s: s[0])
     for d in data_dict[item]:
         f.write(str(d)+'\n')
-'''
+
 d = get_frame_data(0)
 for key, value in d.items():
     print(key)
     print(value, '\n')
+'''
 
+d = get_frame_data(0, 4, 2)
+for key, value in d.items():
+    print(key)
+    print(value, '\n')
 
