@@ -55,6 +55,8 @@ def load_data(path):
         print('Error: File is not exist.')
         exit(0)
 
+
+#  need to call this function from 0 to the end, or it will not work
 def get_frame_data(frame):
     data = {}
     for key, value in data_dict.items():
