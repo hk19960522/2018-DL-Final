@@ -33,12 +33,31 @@ class LocationEncoder(nn.Module):
         pass
 
     def forward(self, data):
+        outputs = self.get_hidden_output(data)
+        outputs = self.get_spatial_affinity(outputs)
+
+    def get_hidden_output(self, data):
         outputs = []
         for idx in range(0, self.pedestrian_num):
             output = nn.ReLU(self.fc1(data[idx]))
             output = nn.ReLU(self.fc2(output))
             output = self.fc3(output)
             outputs = torch.cat([outputs, output.unsqueeze(0)], dim=0)  # unsqueeze to add a dimension
+        return outputs
+
+    def get_spatial_affinity(self, data):
+        outputs = torch.Tensor([])
+        for i in range(0, self.pedestrian_num):
+            row_data = torch.Tensor([])
+            for j in range(0, i+1):
+                row_data = torch.cat([row_data, torch.dot(data[i], data[j]).unsqueeze(0)], dim=0)
+            outputs = torch.cat([outputs, row_data.unsqueeze(0)], dim=0)
+        '''
+        outputs will be like this :
+        a11
+        a21, a22
+        a31, a32, a33
+        '''
         return outputs
 
 
