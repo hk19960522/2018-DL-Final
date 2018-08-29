@@ -72,7 +72,7 @@ def get_frame_data(frame):
 
 load_data('test.txt')
 
-'''
+''' 
 f = open('result', 'w')
 
 for item in data_dict:
