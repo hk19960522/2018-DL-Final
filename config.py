@@ -6,7 +6,7 @@ class Config:
 
         # input
         self.input_frame = 5
-        self.input_size = 2  # * self.input_frame
+        self.input_size = 5  # * self.input_frame
         self.n_layers = 1
 
         # target
