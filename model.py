@@ -73,6 +73,24 @@ class LocationEncoder(nn.Module):
         return output
 
 
+class CrowdInteraction(nn.Module):
+    def __init__(self):
+        super(CrowdInteraction, self).__init__()
+        pass
+
+    def forward(self, location_data, motion_data):
+        pass
+
+
+class DisplacementPrediction(nn.Module):
+    def __init__(self):
+        super(DisplacementPrediction, self).__init__()
+        pass
+
+    def forward(self, data):
+        pass
+
+
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
