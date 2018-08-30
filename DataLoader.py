@@ -110,25 +110,26 @@ def get_one_hot(label):
         one_hot = [0, 0, 0]
     return one_hot
 
-load_data('test.txt')
 
-''' 
-f = open('result', 'w')
+if __name__ == '__main__':
+    load_data('test.txt')
 
-for item in data_dict:
-    f.write(str(item) + ": \n")
-    data_dict[item] = sorted(data_dict[item], key=lambda s: s[0])
-    for d in data_dict[item]:
-        f.write(str(d)+'\n')
+    ''' 
+    f = open('result', 'w')
+    
+    for item in data_dict:
+        f.write(str(item) + ": \n")
+        data_dict[item] = sorted(data_dict[item], key=lambda s: s[0])
+        for d in data_dict[item]:
+            f.write(str(d)+'\n')
+    
+    d = get_frame_data(0)
+    for key, value in d.items():
+        print(key)
+        print(value, '\n')
+    '''
 
-d = get_frame_data(0)
-for key, value in d.items():
-    print(key)
-    print(value, '\n')
-'''
-
-d = get_frame_data(0, 4, 2)
-for key, value in d.items():
-    print(key)
-    print(value, '\n')
-
+    d = get_frame_data(0, 4, 2)
+    for key, value in d.items():
+        print(key)
+        print(value, '\n')
