@@ -59,6 +59,7 @@ class LocationEncoder(nn.Module):
         <h1, h1>
         <h2, h1>, <h2, h2>
         <h3, h1>, <h3, h2>, <h3, h3>
+        ......
         '''
         return self.softmax(output)
 
@@ -74,8 +75,11 @@ class LocationEncoder(nn.Module):
 
 
 class CrowdInteraction(nn.Module):
-    def __init__(self):
+    def __init__(self, pedestrian_num, hidden_size, output_size):
         super(CrowdInteraction, self).__init__()
+        self.pedestrian_num = pedestrian_num
+        self.hidden_size = hidden_size
+        self.output_size = output_size
         pass
 
     def forward(self, location_data, motion_data):
