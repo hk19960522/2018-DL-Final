@@ -75,24 +75,33 @@ class LocationEncoder(nn.Module):
 
 
 class CrowdInteraction(nn.Module):
-    def __init__(self, pedestrian_num, hidden_size, output_size):
+    def __init__(self, pedestrian_num, hidden_size):
         super(CrowdInteraction, self).__init__()
         self.pedestrian_num = pedestrian_num
         self.hidden_size = hidden_size
-        self.output_size = output_size
-        pass
 
     def forward(self, location_data, motion_data):
-        pass
+        output = torch.zeros(self.pedestrian_num, self.hidden_size)
+        for i in range(0, self.pedestrian_num):
+            for j in range(0, self.pedestrian_num):
+                output[i] += torch.mul(motion_data[j], location_data[i][j].item())
+        return output
 
 
 class DisplacementPrediction(nn.Module):
-    def __init__(self):
+    def __init__(self, pedestrian_num, input_size, output_size):
         super(DisplacementPrediction, self).__init__()
-        pass
+        self.pedestrian_num = pedestrian_num
+        self.input_size = input_size
+        self.output_size = output_size
+
+        self.fc1 = nn.Linear(input_size, output_size)
 
     def forward(self, data):
-        pass
+        output = torch.zeros(self.pedestrian_num, self.output_size)
+        for idx in range(0, self.pedestrian_num):
+            output[idx] = self.fc1(data[idx])
+        return output
 
 
 # TODO: all
