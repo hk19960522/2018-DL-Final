@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
 
 
@@ -39,21 +40,24 @@ class LocationEncoder(nn.Module):
         return outputs
 
     def get_hidden_output(self, data):
-        outputs = []
+        outputs = torch.Tensor([])
         for idx in range(0, self.pedestrian_num):
-            output = nn.ReLU(self.fc1(data[idx]))
-            output = nn.ReLU(self.fc2(output))
+            print(data[idx])
+            output = F.relu(self.fc1(data[idx]))
+            output = F.relu(self.fc2(output))
             output = self.fc3(output)
             outputs = torch.cat([outputs, output.unsqueeze(0)], dim=0)  # unsqueeze to add a dimension
         return outputs
 
     def get_spatial_affinity(self, data):
-        output = torch.Tensor([])
+        #output = torch.Tensor([])
+        output = torch.zeros(self.pedestrian_num, self.pedestrian_num)
         for i in range(0, self.pedestrian_num):
             row_data = torch.Tensor([])
             for j in range(0, i+1):
                 row_data = torch.cat([row_data, torch.dot(data[i], data[j]).unsqueeze(0)], dim=0)
-            output = torch.cat([output, row_data.unsqueeze(0)], dim=0)
+            #output = torch.cat([output, row_data.unsqueeze(0)], dim=0)
+            output[i, 0:i+1] = row_data
         '''
         outputs will be like this :
         <h1, h1>
@@ -103,5 +107,27 @@ class DisplacementPrediction(nn.Module):
             output[idx] = self.fc1(data[idx])
         return output
 
+def test():
+    input = torch.Tensor([[[1, 2], [2, 3], [3, 4]],
+                          [[2, 4], [4, 8], [8, 16]],
+                          [[1, 3], [3, 5], [5, 7]]])
+    lstm_fake = torch.Tensor([[1, 2, 3, 4, 5, 6],
+                              [10, 20, 30, 40, 50, 60],
+                              [100, 200, 300, 400, 500, 600]])
+    location_net = LocationEncoder(3, 2, 128)
+    crowd_net = CrowdInteraction(3, 6)
+    prediction_net = DisplacementPrediction(3, 6, 2)
+    for i in range(0, 1):
+        input_data = input[:,i:i+1].view(3, -1)
+        #print(location_net.get_hidden_output(input_data).size())
+        out = location_net.forward(input_data)
+        print(out)
+        out = crowd_net.forward(out, lstm_fake)
+        print(out)
+        out = prediction_net.forward(out)
+        print(out)
 
-# TODO: all
+
+#test()
+
+# TODO : LSTM Module
