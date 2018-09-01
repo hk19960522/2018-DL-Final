@@ -2,25 +2,27 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
+from pprint import pprint
 from model import *
 from config import Config
-from DataLoader import DataLoader
+from DataLoader import get_data_loader
 
 
 class CIDNN_Training:
     def __init__(self):
         # prepare data
         self.config = Config()
-        self.dataloader = DataLoader(path='test.txt')
+        self.dataloader = get_data_loader('test.txt', config=self.config)
         self.motionEncoder = MotionEncoder()
         self.locationEncoder = LocationEncoder(self.config.pedestrian_num,
                                                self.config.input_size,
                                                self.config.hidden_size)
         self.crowdInteraction = CrowdInteraction(self.config.pedestrian_num,
-                                                 self.config.hidden_size,
                                                  self.config.hidden_size)
-        self.displaceDecoder = DisplacementPrediction()  # TODO: module initialization
-        self.optim_ME = optim.Adam(self.motionEncoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
+        self.displaceDecoder = DisplacementPrediction(self.config.pedestrian_num,
+                                                      self.config.hidden_size,
+                                                      self.config.target_size)  # TODO: module initialization
+        # self.optim_ME = optim.Adam(self.motionEncoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
         self.optim_LE = optim.Adam(self.locationEncoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
         self.optim_DD = optim.Adam(self.displaceDecoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
 
@@ -37,7 +39,7 @@ class CIDNN_Training:
         loss = self.main_step(input_, target_)
         loss.backward()
 
-        self.optim_ME.step()
+        # self.optim_ME.step()
         self.optim_LE.step()
         self.optim_DD.step()
 
@@ -45,16 +47,13 @@ class CIDNN_Training:
 
     def main(self):
         # train loop
-        for input_traces, target_traces in self.dataloader.batchify(self.config.batch_size,
-                                                                    self.config.input_frame,
-                                                                    self.config.target_frame):
+        for input_traces, target_traces in self.dataloader:
             print(input_traces.size())
             print(target_traces.size())
-            self.train(input_traces, target_traces)
+            # self.train(input_traces, target_traces)
 
 
 if __name__ == '__main__':
     cidnn = CIDNN_Training()
-    print(cidnn.dataloader.data_dict)
     cidnn.main()
 # TODO: main function

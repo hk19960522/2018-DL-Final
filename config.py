@@ -4,13 +4,16 @@ class Config:
         self.pedestrian_num = 20
         self.hidden_size = 128
 
+        # data
+        self.sample_rate = 20
+
         # input
-        self.input_frame = 5
+        self.input_frame = 6
         self.input_size = 5  # * self.input_frame
         self.n_layers = 1
 
         # target
-        self.target_frame = 5
+        self.target_frame = 7
         self.target_size = 2
         self.window_size = 1
 
