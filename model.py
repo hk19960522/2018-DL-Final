@@ -65,8 +65,8 @@ class LocationEncoder(nn.Module):
 
     def forward(self, data):
         outputs = self.get_hidden_output(data)
-        outputs = self.get_spatial_affinity(outputs)
-        return outputs
+        output = self.Attention(outputs, outputs)
+        return output
 
     def get_hidden_output(self, data):
         output_list = []
@@ -81,12 +81,24 @@ class LocationEncoder(nn.Module):
         outputs = torch.stack(output_list, 1)
         return outputs
 
+    def Attention(self, input_data, target_data):
+        Attn = torch.bmm(target_data, input_data.transpose(1, 2))
+
+        inner_Attn = Attn
+
+        Attn_size = Attn.size()
+        Attn = Attn - Attn.max(2)[0].unsqueeze(2).expand(Attn_size)
+        exp_Attn = torch.exp(Attn)
+
+        # batch-based softmax
+        Attn = exp_Attn / exp_Attn.sum(2).unsqueeze(2).expand(Attn_size)
+        return Attn
+
     def get_spatial_affinity(self, data):
         #output = torch.Tensor([])
         #print(data.size())
         output = torch.zeros(self.batch_size, self.pedestrian_num, self.pedestrian_num)
 
-        soft_out = torch.zeros(self.batch_size, self.pedestrian_num, self.pedestrian_num)
         for batch in range(0, self.batch_size):
             for i in range(0, self.pedestrian_num):
                 row_data = torch.Tensor([])
@@ -97,9 +109,8 @@ class LocationEncoder(nn.Module):
             for i in range(0, self.pedestrian_num):
                 col_data = output[batch, :, i].view(1, -1)
                 output[batch, i, :] = col_data
-                soft_out[batch, i, :] = col_data
             #print(output[batch])
-            soft_out[batch] = self.soft(soft_out[batch])
+            output[batch] = self.soft(output[batch])
         '''
         outputs will be like this :
         <h1, h1>, <h2, h1>, <h3, h1> ...
@@ -107,7 +118,7 @@ class LocationEncoder(nn.Module):
         <h3, h1>, <h3, h2>, <h3, h3> ...
         ......
         '''
-        return soft_out
+        return output
 
 
     def softmax(self, data):
@@ -159,7 +170,7 @@ class DisplacementPrediction(nn.Module):
 
 
 def test():
-    batch = 10
+    batch = 1000
     frame = 5
     person = 20
     input = torch.Tensor(torch.randn(batch, person, frame, 5))
@@ -178,13 +189,16 @@ def test():
         _, hidden = lstm(input_data, hidden)
 
     for f in range(0, frame):
+        print(f)
         input_data = input[:, :, f, :]
         location_out = location_net(input_data)
 
         lstm_out, hidden = lstm(input_data, hidden)
-        crowd_out = crowd_net(location_out, lstm_out)
+        #crowd_out = crowd_net(location_out, lstm_out)
+        crowd_out = torch.bmm(location_out, lstm_out)
+
         prediction = prediction_net(crowd_out)
-        print(prediction)
+        #print(prediction)
 
     print('Done.')
     '''
