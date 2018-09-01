@@ -101,8 +101,8 @@ def get_data_loader(path, config):
 
     sample_train = torch.tensor(sample_train)
     sample_target = torch.tensor(sample_target)
-    print('train:', sample_train.size())
-    print('target:', sample_target.size())
+    # print('train:', sample_train.size())
+    # print('target:', sample_target.size())
     dataset = TensorDataset(sample_train, sample_target)
     return DataLoader(dataset, batch_size=config.batch_size)
 
