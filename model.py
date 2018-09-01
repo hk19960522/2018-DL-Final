@@ -132,13 +132,10 @@ class CrowdInteraction(nn.Module):
 
     def forward(self, location_data, motion_data):
         output = torch.zeros(self.batch_size, self.pedestrian_num, self.hidden_size)
-        print(output.size())
         for batch in range(0, self.batch_size):
             for i in range(0, self.pedestrian_num):
                 for j in range(0, self.pedestrian_num):
-                    print(batch, ' ', i, ' ', j)
                     output[batch][i] += torch.mul(motion_data[batch][j], location_data[batch][i][j].item())
-        print('DONE')
         return output
 
 
@@ -152,16 +149,14 @@ class DisplacementPrediction(nn.Module):
         self.fc1 = nn.Linear(input_size, output_size)
 
     def forward(self, data):
-        print('hi')
         output_list = []
         for idx in range(0, self.pedestrian_num):
-            print(idx)
             output_list.append(self.fc1(data[:, idx]))
 
-        #output = torch.stack(output_list, 1)
+        output = torch.stack(output_list, 1)
         #print(output.size())
-        print('hi')
-        return output_list
+        return output
+
 
 def test():
     batch = 10
@@ -183,17 +178,13 @@ def test():
         _, hidden = lstm(input_data, hidden)
 
     for f in range(0, frame):
-        print('frame : ', f)
         input_data = input[:, :, f, :]
         location_out = location_net(input_data)
 
         lstm_out, hidden = lstm(input_data, hidden)
-        #print(location_out.size())
-        #print(lstm_out.size())
         crowd_out = crowd_net(location_out, lstm_out)
-        _ = prediction_net(crowd_out)
-        print('aaaaa')
-        #print(len(prediction))
+        prediction = prediction_net(crowd_out)
+        print(prediction)
 
     print('Done.')
     '''
@@ -218,6 +209,7 @@ def test():
         print(hidden)
         _, hidden = lstm(input[:, i], hidden)
     '''
+
 
 test()
 
