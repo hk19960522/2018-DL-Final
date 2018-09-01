@@ -45,6 +45,9 @@ class CIDNN_Training:
 
         return loss
 
+    def test(self, input_, target_):
+        return self.main_step(input_, target_)
+
     def main(self):
         # train loop
         for input_traces, target_traces in self.dataloader:
