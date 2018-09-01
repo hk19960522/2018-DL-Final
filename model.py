@@ -14,12 +14,38 @@ class BaseModel(nn.Module):
 
 
 class MotionEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, pedestrian_num, layer_num, input_size, hidden_size):
         super(MotionEncoder, self).__init__()
+        self.pedestrian_num = pedestrian_num
+        self.layer_num = layer_num
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+
+        self.lstm = nn.LSTM(self.input_size, self.hidden_size, self.layer_num)
         pass
 
-    def forward(self, x):
-        pass
+    def forward(self, data, hidden):
+        next_hidden_list = []
+        output_list = []
+
+        print('data: \n', data)
+        for idx in range(0, self.pedestrian_num):
+            input_data = data[idx].unsqueeze(0).unsqueeze(0)
+            print(idx, ': ')
+            print(data[idx])
+            output_data, next_hidden = self.lstm(input_data, (hidden[idx][0], hidden[idx][1]))
+
+            next_hidden_list.append(next_hidden)
+            output_list.append(output_data)
+
+        output = torch.stack(output_list, 0)
+        return output, next_hidden_list
+
+    def init_hidden(self, batch_size): # batch_size is frame length ( maybe )
+        hidden = [[torch.zeros(self.layer_num, batch_size, self.hidden_size)
+                   for _ in range(0, 2)]
+                  for _ in range(0, self.pedestrian_num)]
+        return hidden
 
 
 class LocationEncoder(nn.Module):
@@ -114,11 +140,13 @@ def test():
     lstm_fake = torch.Tensor([[1, 2, 3, 4, 5, 6],
                               [10, 20, 30, 40, 50, 60],
                               [100, 200, 300, 400, 500, 600]])
+
     location_net = LocationEncoder(3, 2, 128)
     crowd_net = CrowdInteraction(3, 6)
     prediction_net = DisplacementPrediction(3, 6, 2)
     for i in range(0, 1):
-        input_data = input[:,i:i+1].view(3, -1)
+        input_data = input[:, i]
+        print(input_data)
         #print(location_net.get_hidden_output(input_data).size())
         out = location_net.forward(input_data)
         print(out)
@@ -126,6 +154,17 @@ def test():
         print(out)
         out = prediction_net.forward(out)
         print(out)
+
+    print('lstm test:')
+    lstm = MotionEncoder(3, 2, 2, 5)
+
+    hidden = lstm.init_hidden(1)
+    #print(hidden[0][0], '\n', hidden[0][1])
+
+    for i in range(0, 2): #frame
+        print(input[:, i])
+        print(hidden)
+        _, hidden = lstm(input[:, i], hidden)
 
 
 #test()
