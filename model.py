@@ -28,17 +28,18 @@ class MotionEncoder(nn.Module):
         next_hidden_list = []
         output_list = []
 
-        print('data: \n', data)
+        #print('data: \n', data)
         for idx in range(0, self.pedestrian_num):
-            input_data = data[idx].unsqueeze(0).unsqueeze(0)
-            print(idx, ': ')
-            print(data[idx])
+            input_data = data[:, idx].unsqueeze(0)
+            #print(idx, ': ')
+            #print(data[idx])
             output_data, next_hidden = self.lstm(input_data, (hidden[idx][0], hidden[idx][1]))
 
             next_hidden_list.append(next_hidden)
-            output_list.append(output_data)
+            #print('lstm : ', output_data.size())
+            output_list.append(output_data.squeeze(0))
 
-        output = torch.stack(output_list, 0)
+        output = torch.stack(output_list, 1)
         return output, next_hidden_list
 
     def init_hidden(self, batch_size): # batch_size is frame length ( maybe )
@@ -49,15 +50,17 @@ class MotionEncoder(nn.Module):
 
 
 class LocationEncoder(nn.Module):
-    def __init__(self, pedestrian_num, input_size, hidden_size):
+    def __init__(self, pedestrian_num, input_size, hidden_size, batch_size):
         super(LocationEncoder, self).__init__()
         self.pedestrian_num = pedestrian_num
         self.input_size = input_size
         self.hidden_size = hidden_size
+        self.batch_size = batch_size
 
         self.fc1 = nn.Linear(input_size, 32)
         self.fc2 = nn.Linear(32, 64)
         self.fc3 = nn.Linear(64, self.hidden_size)
+        self.soft = nn.Softmax(dim=1)
         pass
 
     def forward(self, data):
@@ -66,55 +69,76 @@ class LocationEncoder(nn.Module):
         return outputs
 
     def get_hidden_output(self, data):
-        outputs = torch.Tensor([])
+        output_list = []
         for idx in range(0, self.pedestrian_num):
-            print(data[idx])
-            output = F.relu(self.fc1(data[idx]))
+            #print(data[idx])
+            output = F.relu(self.fc1(data[:, idx]))
             output = F.relu(self.fc2(output))
             output = self.fc3(output)
-            outputs = torch.cat([outputs, output.unsqueeze(0)], dim=0)  # unsqueeze to add a dimension
+
+            output_list.append(output)
+
+        outputs = torch.stack(output_list, 1)
         return outputs
 
     def get_spatial_affinity(self, data):
         #output = torch.Tensor([])
-        output = torch.zeros(self.pedestrian_num, self.pedestrian_num)
-        for i in range(0, self.pedestrian_num):
-            row_data = torch.Tensor([])
-            for j in range(0, i+1):
-                row_data = torch.cat([row_data, torch.dot(data[i], data[j]).unsqueeze(0)], dim=0)
-            #output = torch.cat([output, row_data.unsqueeze(0)], dim=0)
-            output[i, 0:i+1] = row_data
+        #print(data.size())
+        output = torch.zeros(self.batch_size, self.pedestrian_num, self.pedestrian_num)
+
+        soft_out = torch.zeros(self.batch_size, self.pedestrian_num, self.pedestrian_num)
+        for batch in range(0, self.batch_size):
+            for i in range(0, self.pedestrian_num):
+                row_data = torch.Tensor([])
+                for j in range(0, i+1):
+                    row_data = torch.cat([row_data, torch.dot(data[batch][i], data[batch][j]).unsqueeze(0)], dim=0)
+                #output = torch.cat([output, row_data.unsqueeze(0)], dim=0)
+                output[batch, i, 0:i+1] = row_data
+            for i in range(0, self.pedestrian_num):
+                col_data = output[batch, :, i].view(1, -1)
+                output[batch, i, :] = col_data
+                soft_out[batch, i, :] = col_data
+            #print(output[batch])
+            soft_out[batch] = self.soft(soft_out[batch])
         '''
         outputs will be like this :
-        <h1, h1>
-        <h2, h1>, <h2, h2>
-        <h3, h1>, <h3, h2>, <h3, h3>
+        <h1, h1>, <h2, h1>, <h3, h1> ...
+        <h2, h1>, <h2, h2>, <h3, h2> ...
+        <h3, h1>, <h3, h2>, <h3, h3> ...
         ......
         '''
-        return self.softmax(output)
+        return soft_out
+
 
     def softmax(self, data):
-        output = torch.zeros(self.pedestrian_num, self.pedestrian_num)
-        for i in range(0, self.pedestrian_num):
-            count = 0
-            for j in range(0, self.pedestrian_num):
-                count += math.exp(data[max(i, j)][min(i, j)].item())
-            for j in range(0, self.pedestrian_num):
-                output[i][j] = math.exp(data[max(i, j)][min(i, j)].item()) / count
+        output = torch.zeros(self.batch_size, self.pedestrian_num, self.pedestrian_num)
+        exp_data = torch.exp(data)
+        for batch in range(0, self.batch_size):
+            for i in range(0, self.pedestrian_num):
+                count = 0
+                for j in range(0, self.pedestrian_num):
+                    count += exp_data[batch][max(i, j)][min(i, j)].item()
+                for j in range(0, self.pedestrian_num):
+                    output[batch][i][j] = exp_data[batch][max(i, j)][min(i, j)].item() / count
         return output
 
 
 class CrowdInteraction(nn.Module):
-    def __init__(self, pedestrian_num, hidden_size):
+    def __init__(self, pedestrian_num, hidden_size, batch_size):
         super(CrowdInteraction, self).__init__()
         self.pedestrian_num = pedestrian_num
         self.hidden_size = hidden_size
+        self.batch_size = batch_size
 
     def forward(self, location_data, motion_data):
-        output = torch.zeros(self.pedestrian_num, self.hidden_size)
-        for i in range(0, self.pedestrian_num):
-            for j in range(0, self.pedestrian_num):
-                output[i] += torch.mul(motion_data[j], location_data[i][j].item())
+        output = torch.zeros(self.batch_size, self.pedestrian_num, self.hidden_size)
+        print(output.size())
+        for batch in range(0, self.batch_size):
+            for i in range(0, self.pedestrian_num):
+                for j in range(0, self.pedestrian_num):
+                    print(batch, ' ', i, ' ', j)
+                    output[batch][i] += torch.mul(motion_data[batch][j], location_data[batch][i][j].item())
+        print('DONE')
         return output
 
 
@@ -128,19 +152,53 @@ class DisplacementPrediction(nn.Module):
         self.fc1 = nn.Linear(input_size, output_size)
 
     def forward(self, data):
-        output = torch.zeros(self.pedestrian_num, self.output_size)
+        print('hi')
+        output_list = []
         for idx in range(0, self.pedestrian_num):
-            output[idx] = self.fc1(data[idx])
-        return output
+            print(idx)
+            output_list.append(self.fc1(data[:, idx]))
+
+        #output = torch.stack(output_list, 1)
+        #print(output.size())
+        print('hi')
+        return output_list
 
 def test():
-    input = torch.Tensor(torch.randn(1000, 20, 5, 5))
-    motion_out = torch.Tensor(torch.randn(1000, 20, 2))  # should be batch_size, ped_num, displacement
-    location_net = LocationEncoder(20, 5, 128)
-    crowd_net = CrowdInteraction(20, 128)
-    prediction_net = DisplacementPrediction(20, 5, 2)
+    batch = 10
+    frame = 5
+    person = 20
+    input = torch.Tensor(torch.randn(batch, person, frame, 5))
+    motion_out = torch.Tensor(torch.randn(batch, person, 2))  # should be batch_size, ped_num, displacement
+    location_net = LocationEncoder(person, 5, 128, batch)
+    crowd_net = CrowdInteraction(person, 128, batch)
+    prediction_net = DisplacementPrediction(person, 128, 2)
+    lstm = MotionEncoder(person, 2, 5, 128)
+
+    hidden = lstm.init_hidden(batch)
+
+    #observation frame
+    for f in range(0, frame):
+        input_data = input[:, :, f, :]
+        #print(input_data.size())
+        _, hidden = lstm(input_data, hidden)
+
+    for f in range(0, frame):
+        print('frame : ', f)
+        input_data = input[:, :, f, :]
+        location_out = location_net(input_data)
+
+        lstm_out, hidden = lstm(input_data, hidden)
+        #print(location_out.size())
+        #print(lstm_out.size())
+        crowd_out = crowd_net(location_out, lstm_out)
+        _ = prediction_net(crowd_out)
+        print('aaaaa')
+        #print(len(prediction))
+
+    print('Done.')
+    '''
     for i in range(0, 1):
-        input_data = input[:,i:i+1].view(1000, -1)
+        input_data = input[:, i:i+1].view(1000, -1)
         #print(location_net.get_hidden_output(input_data).size())
         out = location_net(input_data)
         print(out)
@@ -159,7 +217,7 @@ def test():
         print(input[:, i])
         print(hidden)
         _, hidden = lstm(input[:, i], hidden)
-
+    '''
 
 test()
 
