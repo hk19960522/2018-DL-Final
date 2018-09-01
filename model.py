@@ -108,26 +108,22 @@ class DisplacementPrediction(nn.Module):
         return output
 
 def test():
-    input = torch.Tensor([[[1, 2], [2, 3], [3, 4]],
-                          [[2, 4], [4, 8], [8, 16]],
-                          [[1, 3], [3, 5], [5, 7]]])
-    lstm_fake = torch.Tensor([[1, 2, 3, 4, 5, 6],
-                              [10, 20, 30, 40, 50, 60],
-                              [100, 200, 300, 400, 500, 600]])
-    location_net = LocationEncoder(3, 2, 128)
-    crowd_net = CrowdInteraction(3, 6)
-    prediction_net = DisplacementPrediction(3, 6, 2)
+    input = torch.Tensor(torch.randn(1000, 20, 5, 5))
+    motion_out = torch.Tensor(torch.randn(1000, 20, 2))  # should be batch_size, ped_num, displacement
+    location_net = LocationEncoder(20, 5, 128)
+    crowd_net = CrowdInteraction(20, 128)
+    prediction_net = DisplacementPrediction(20, 5, 2)
     for i in range(0, 1):
-        input_data = input[:,i:i+1].view(3, -1)
+        input_data = input[:,i:i+1].view(1000, -1)
         #print(location_net.get_hidden_output(input_data).size())
-        out = location_net.forward(input_data)
+        out = location_net(input_data)
         print(out)
-        out = crowd_net.forward(out, lstm_fake)
+        out = crowd_net(out, motion_out)
         print(out)
-        out = prediction_net.forward(out)
+        out = prediction_net(out)
         print(out)
 
 
-#test()
+test()
 
 # TODO : LSTM Module
