@@ -44,7 +44,6 @@ def load_data(path):
     else:
         print('Error: File %s is not exist.'.format(path))
         exit(0)
-    print('File loaded.')
     return raw_data
 
 
@@ -105,6 +104,7 @@ def get_data_loader(path, config):
     # print('train:', sample_train.size())
     # print('target:', sample_target.size())
     dataset = TensorDataset(sample_train, sample_target)
+    print('File loaded.')
     return DataLoader(dataset, batch_size=config.batch_size)
 
 

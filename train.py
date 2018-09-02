@@ -26,14 +26,14 @@ class CIDNN_Training:
                                                  self.config.hidden_size)
         self.displaceDecoder = DisplacementPrediction(self.config.pedestrian_num,
                                                       self.config.hidden_size,
-                                                      self.config.target_size)  # TODO: module initialization
+                                                      self.config.target_size)
         self.optim_ME = optim.Adam(self.motionEncoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
         self.optim_LE = optim.Adam(self.locationEncoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
         self.optim_DD = optim.Adam(self.displaceDecoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
 
         self.train_loss_series = []
+
     def main_step(self, input_traces, target_traces):
-        # TODO: main compute step
         # (batch, pedestrain_num, frame, feature)
         batch_size = input_traces.size(0)
         total_size = 1
@@ -66,7 +66,7 @@ class CIDNN_Training:
         #print((target_traces - prediction_traces))
         MSE_loss = ((target_traces[:, :, :, :2] - prediction_traces[:, :, :, :2]) ** 2).sum() / total_size
         MSE_loss = MSE_loss.sqrt()
-        # MSE_loss = ((target_traces - prediction_traces) ** 2).sum(3).sqrt().maen()
+        # MSE_loss = ((target_traces - prediction_traces) ** 2).sum(3).sqrt().mean()
         # MSE_loss = nn.MSELoss(target_traces, prediction_traces)
         self.train_loss_series.append(MSE_loss.item())
         return MSE_loss, prediction_traces
@@ -78,7 +78,7 @@ class CIDNN_Training:
         self.displaceDecoder.zero_grad()
 
         loss, traces = self.main_step(input_, target_)
-        #print(loss)
+        # print(loss)
         loss.backward()
 
         self.optim_ME.step()
@@ -88,7 +88,8 @@ class CIDNN_Training:
         return loss
 
     def test(self, input_, target_):
-        return self.main_step(input_, target_)
+        ret, _ = self.main_step(input_, target_)
+        return ret
 
     def main(self):
         # train loop
@@ -96,7 +97,7 @@ class CIDNN_Training:
         for epoch in range(0, self.config.n_epochs):
             length = len(self.train_loss_series)
             for input_traces, target_traces in self.dataloader:
-                input_traces = target_traces.float()
+                input_traces = input_traces.float()
                 target_traces = target_traces.float()
                 input_traces.requires_grad = True
                 target_traces.requires_grad = True
