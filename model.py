@@ -43,7 +43,7 @@ class MotionEncoder(nn.Module):
         return output, next_hidden_list
 
     def init_hidden(self, batch_size): # batch_size is frame length ( maybe )
-        hidden = [[torch.zeros(self.layer_num, batch_size, self.hidden_size)
+        hidden = [[torch.zeros(self.layer_num, batch_size, self.hidden_size).cuda()
                    for _ in range(0, 2)]
                   for _ in range(0, self.pedestrian_num)]
         return hidden

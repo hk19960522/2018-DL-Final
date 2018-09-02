@@ -36,6 +36,10 @@ class CIDNN_Training:
 
         self.train_loss_series = []
 
+        self.motionEncoder = self.motionEncoder.cuda()
+        self.locationEncoder = self.locationEncoder.cuda()
+        self.displaceDecoder = self.displaceDecoder.cuda()
+
     def main_step(self, input_traces, target_traces):
         # (batch, pedestrain_num, frame, feature)
         batch_size = input_traces.size(0)
@@ -68,7 +72,7 @@ class CIDNN_Training:
 
         # print((target_traces - prediction_traces))
         MSE_loss = ((target_traces[:, :, :, :2] - prediction_traces[:, :, :, :2]) ** 2).sum()
-        MSE_loss = (MSE_loss / self.config.pedestrian_num).sqrt()
+        MSE_loss = (MSE_loss / total_size).sqrt()
         # MSE_loss = ((target_traces - prediction_traces) ** 2).sum(3).sqrt().mean()
         # MSE_loss = nn.MSELoss(target_traces, prediction_traces)
         self.train_loss_series.append(MSE_loss.item())
@@ -105,8 +109,8 @@ class CIDNN_Training:
             try:
                 epoch_loss = []
                 for input_traces, target_traces in self.dataloader:
-                    input_traces = input_traces.float()
-                    target_traces = target_traces.float()
+                    input_traces = input_traces.float().cuda()
+                    target_traces = target_traces.float().cuda()
                     input_traces.requires_grad = True
                     target_traces.requires_grad = True
                     loss = self.train(input_traces, target_traces)
@@ -144,6 +148,7 @@ class CIDNN_Training:
 
 
 if __name__ == '__main__':
+    torch.backends.cudnn.enabled = False
     parser = argparse.ArgumentParser(description='CIDNN training')
     parser.add_argument('--resume', '-r', action='store_true')
     parser.add_argument('--epochs', '-e', default=10000)
