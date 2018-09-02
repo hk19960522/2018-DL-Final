@@ -1,3 +1,6 @@
+import argparse
+import os
+
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -10,9 +13,9 @@ from DataLoader import get_data_loader
 
 
 class CIDNN_Training:
-    def __init__(self):
+    def __init__(self, config):
         # prepare data
-        self.config = Config()
+        self.config = config
         self.dataloader = get_data_loader('test.txt', config=self.config)
         self.motionEncoder = MotionEncoder(self.config.pedestrian_num,
                                            self.config.n_layers,
@@ -63,9 +66,9 @@ class CIDNN_Training:
 
         prediction_traces = torch.stack(prediction_traces, 2)
 
-        #print((target_traces - prediction_traces))
-        MSE_loss = ((target_traces[:, :, :, :2] - prediction_traces[:, :, :, :2]) ** 2).sum() / total_size
-        MSE_loss = MSE_loss.sqrt()
+        # print((target_traces - prediction_traces))
+        MSE_loss = ((target_traces[:, :, :, :2] - prediction_traces[:, :, :, :2]) ** 2).sum()
+        MSE_loss = (MSE_loss / self.config.pedestrian_num).sqrt()
         # MSE_loss = ((target_traces - prediction_traces) ** 2).sum(3).sqrt().mean()
         # MSE_loss = nn.MSELoss(target_traces, prediction_traces)
         self.train_loss_series.append(MSE_loss.item())
@@ -85,29 +88,70 @@ class CIDNN_Training:
         self.optim_LE.step()
         self.optim_DD.step()
 
-        return loss
+        return loss.item()
 
     def test(self, input_, target_):
         ret, _ = self.main_step(input_, target_)
         return ret
 
     def main(self):
+        start_epoch = 0
+        if config.resume:
+            arg = self.load()
+            if arg is not None and 'epoch' in args:
+                start_epoch = arg['epoch']
         # train loop
-        self.train_loss_series = []
-        for epoch in range(0, self.config.n_epochs):
-            length = len(self.train_loss_series)
-            for input_traces, target_traces in self.dataloader:
-                input_traces = input_traces.float()
-                target_traces = target_traces.float()
-                input_traces.requires_grad = True
-                target_traces.requires_grad = True
-                self.train(input_traces, target_traces)
+        for epoch in range(start_epoch, start_epoch + self.config.n_epochs):
+            try:
+                epoch_loss = []
+                for input_traces, target_traces in self.dataloader:
+                    input_traces = input_traces.float()
+                    target_traces = target_traces.float()
+                    input_traces.requires_grad = True
+                    target_traces.requires_grad = True
+                    loss = self.train(input_traces, target_traces)
+                    epoch_loss.append(loss)
 
-            length = len(self.train_loss_series) - length + 1
-            print('Epoch %d Average Loss : %f' % (epoch, np.mean(self.train_loss_series[-length:])))
+                avg = np.average(epoch_loss)
+                print('Epoch %d Average Loss : %f' % (epoch, avg))
+                self.train_loss_series.append(avg)
+            except KeyboardInterrupt:
+                print('KeyboardInterrupt')
+                self.save(epoch=epoch)
+                exit(0)
+
+    def save(self, dir_path='./weights/', **args):
+        print(args)
+        if not os.path.exists(dir_path):
+            os.mkdir(dir_path)
+        args['motionEncoder'] = self.motionEncoder.state_dict()
+        args['locationEncoder'] = self.locationEncoder.state_dict()
+        args['displaceDecoder'] = self.displaceDecoder.state_dict()
+        args['train_loss_series'] = self.train_loss_series
+        torch.save(args, dir_path + 'model.pkl')
+
+    def load(self, dir_path='./weights/'):
+        dir_path += 'model.pkl'
+        if not os.path.exists(dir_path):
+            return None
+        args = torch.load(dir_path)
+        self.motionEncoder.load_state_dict(args['motionEncoder'])
+        self.locationEncoder.load_state_dict(args['locationEncoder'])
+        self.displaceDecoder.load_state_dict(args['displaceDecoder'])
+        self.train_loss_series = args['train_loss_series']
+        print('model loaded from %s' % dir_path, args)
+        return args
 
 
 if __name__ == '__main__':
-    cidnn = CIDNN_Training()
+    parser = argparse.ArgumentParser(description='CIDNN training')
+    parser.add_argument('--resume', '-r', action='store_true')
+    parser.add_argument('--epochs', '-e', default=10000)
+    args = parser.parse_args()
+
+    config = Config()
+    config.n_epochs = args.epochs
+    config.resume = args.resume
+    cidnn = CIDNN_Training(config)
     cidnn.main()
-# TODO: main function
+
