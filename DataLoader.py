@@ -49,13 +49,13 @@ def load_data(path):
 
 def get_one_hot(label):
     if label == '"Pedestrian"':
-        one_hot = [1, 0, 0]
+        one_hot = [1.0, 0.0, 0.0]
     elif label == '"Biker"':
-        one_hot = [0, 1, 0]
+        one_hot = [0.0, 1.0, 0.0]
     elif label == '"Skater"':
-        one_hot = [0, 0, 1]
+        one_hot = [0.0, 0.0, 1.0]
     else:
-        one_hot = [0, 0, 0]
+        one_hot = [0.0, 0.0, 0.0]
     return one_hot
 
 

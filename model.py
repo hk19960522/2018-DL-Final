@@ -135,19 +135,20 @@ class LocationEncoder(nn.Module):
 
 
 class CrowdInteraction(nn.Module):
-    def __init__(self, pedestrian_num, hidden_size, batch_size):
+    def __init__(self, pedestrian_num, hidden_size):
         super(CrowdInteraction, self).__init__()
         self.pedestrian_num = pedestrian_num
         self.hidden_size = hidden_size
-        self.batch_size = batch_size
 
     def forward(self, location_data, motion_data):
+        '''
         output = torch.zeros(self.batch_size, self.pedestrian_num, self.hidden_size)
         for batch in range(0, self.batch_size):
             for i in range(0, self.pedestrian_num):
                 for j in range(0, self.pedestrian_num):
                     output[batch][i] += torch.mul(motion_data[batch][j], location_data[batch][i][j].item())
-        return output
+        '''
+        return torch.bmm(location_data, motion_data)
 
 
 class DisplacementPrediction(nn.Module):
@@ -194,8 +195,7 @@ def test():
         location_out = location_net(input_data)
 
         lstm_out, hidden = lstm(input_data, hidden)
-        #crowd_out = crowd_net(location_out, lstm_out)
-        crowd_out = torch.bmm(location_out, lstm_out)
+        crowd_out = crowd_net(location_out, lstm_out)
 
         prediction = prediction_net(crowd_out)
         #print(prediction)
@@ -225,6 +225,6 @@ def test():
     '''
 
 
-test()
+#test()
 
 # TODO : LSTM Module
