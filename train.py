@@ -1,6 +1,7 @@
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
+import numpy as np
 
 from pprint import pprint
 from model import *
@@ -30,10 +31,17 @@ class CIDNN_Training:
         self.optim_LE = optim.Adam(self.locationEncoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
         self.optim_DD = optim.Adam(self.displaceDecoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
 
+        self.train_loss_series = []
     def main_step(self, input_traces, target_traces):
         # TODO: main compute step
         # (batch, pedestrain_num, frame, feature)
         batch_size = input_traces.size(0)
+        total_size = 1
+
+        for i in target_traces.size():
+            total_size *= i
+        total_size /= target_traces.size(-1)
+        total_size *= 2
         target = input_traces[:, :, self.config.input_frame-1]
         hidden = self.motionEncoder.init_hidden(batch_size)
         prediction_traces = []
@@ -55,8 +63,12 @@ class CIDNN_Training:
 
         prediction_traces = torch.stack(prediction_traces, 2)
 
-        MSE_loss = ((target_traces - prediction_traces) ** 2).sum() / self.config.pedestrian_num
+        #print((target_traces - prediction_traces))
+        MSE_loss = ((target_traces[:, :, :, :2] - prediction_traces[:, :, :, :2]) ** 2).sum() / total_size
+        MSE_loss = MSE_loss.sqrt()
         # MSE_loss = ((target_traces - prediction_traces) ** 2).sum(3).sqrt().maen()
+        # MSE_loss = nn.MSELoss(target_traces, prediction_traces)
+        self.train_loss_series.append(MSE_loss.item())
         return MSE_loss, prediction_traces
 
     def train(self, input_, target_):
@@ -66,7 +78,7 @@ class CIDNN_Training:
         self.displaceDecoder.zero_grad()
 
         loss, traces = self.main_step(input_, target_)
-        print(loss)
+        #print(loss)
         loss.backward()
 
         self.optim_ME.step()
@@ -80,13 +92,18 @@ class CIDNN_Training:
 
     def main(self):
         # train loop
+        self.train_loss_series = []
         for epoch in range(0, self.config.n_epochs):
+            length = len(self.train_loss_series)
             for input_traces, target_traces in self.dataloader:
                 input_traces = target_traces.float()
                 target_traces = target_traces.float()
                 input_traces.requires_grad = True
                 target_traces.requires_grad = True
                 self.train(input_traces, target_traces)
+
+            length = len(self.train_loss_series) - length + 1
+            print('Epoch %d Average Loss : %f' % (epoch, np.mean(self.train_loss_series[-length:])))
 
 
 if __name__ == '__main__':
