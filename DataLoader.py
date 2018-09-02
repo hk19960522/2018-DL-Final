@@ -26,7 +26,7 @@ class PersonData:
         return self.id == other.id
 
     def to_feature(self):
-        return self.position + get_one_hot(type)
+        return [self.position[0] / 1920.0, self.position[1] / 1080.0] + get_one_hot(self.type)
 
 def load_data(path):
     raw_data = []
@@ -44,6 +44,7 @@ def load_data(path):
     else:
         print('Error: File %s is not exist.'.format(path))
         exit(0)
+    print('File loaded.')
     return raw_data
 
 
@@ -109,3 +110,6 @@ def get_data_loader(path, config):
 
 if __name__ == '__main__':
     dl = get_data_loader('test.txt', Config())
+    for i, t in dl:
+        print(i.size(), i[0])
+        break
