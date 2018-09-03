@@ -16,7 +16,7 @@ class CIDNN_Training:
     def __init__(self, config):
         # prepare data
         self.config = config
-        self.dataloader = get_data_loader('test.txt', config=self.config)
+        self.dataloader = get_data_loader('deathCircle_01.txt', config=self.config)
         self.motionEncoder = MotionEncoder(self.config.pedestrian_num,
                                            self.config.n_layers,
                                            self.config.input_size,
@@ -105,6 +105,7 @@ class CIDNN_Training:
             if arg is not None and 'epoch' in args:
                 start_epoch = arg['epoch']
         # train loop
+        min_loss = 1.0
         for epoch in range(start_epoch, start_epoch + self.config.n_epochs):
             try:
                 epoch_loss = []
@@ -119,9 +120,12 @@ class CIDNN_Training:
                 avg = np.average(epoch_loss)
                 print('Epoch %d Average Loss : %f' % (epoch, avg))
                 self.train_loss_series.append(avg)
+                if min_loss > avg:
+                    self.save()
+                    min_loss = avg
             except KeyboardInterrupt:
                 print('KeyboardInterrupt')
-                self.save(epoch=epoch)
+                self.save(dir_path='./weights/interrupt/')
                 exit(0)
 
     def save(self, dir_path='./weights/', **args):
