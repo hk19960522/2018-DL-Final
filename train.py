@@ -3,8 +3,10 @@ import os
 
 import numpy as np
 import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
 
 from DataLoader import get_data_loader
+from draw import show_result
 from model import *
 
 
@@ -12,12 +14,15 @@ class CIDNN_Training:
     def __init__(self, config):
         # prepare data
         self.config = config
-        self.dataloader = get_data_loader(self.config.coord_filename,
-                                          self.config.input_frame,
-                                          self.config.target_frame,
-                                          self.config.pedestrian_num,
-                                          self.config.sample_rate,
-                                          self.config.batch_size)
+        self.sample_input, self.sample_target, self.sample_frame = \
+            get_data_loader(self.config.coord_filename,
+                            self.config.input_frame,
+                            self.config.target_frame,
+                            self.config.pedestrian_num,
+                            self.config.sample_rate,
+                            self.config.batch_size)
+        data = TensorDataset(self.sample_input, self.sample_target)
+        self.dataloader = DataLoader(data, batch_size=self.config.batch_size)
         self.motionEncoder = MotionEncoder(self.config.pedestrian_num,
                                            self.config.n_layers,
                                            self.config.input_size,
@@ -99,9 +104,22 @@ class CIDNN_Training:
         return loss.item()
 
     def test(self):
-        pass
+        assert self.config.test
+        self.load()
+        inp_list, tar_list, pre_list = [], [], []
+        for inp, tar in self.dataloader:
+            inp = inp.float().cuda()
+            tar = tar.float().cuda()
+            _, prediction = self.main_step(inp, tar)
+            pre_list.append(prediction.data)
+        predict = torch.cat(pre_list).cpu()
+
+        show_result(self.config.video_filename,
+                    self.sample_frame,
+                    self.sample_input, self.sample_target, predict)
 
     def main(self):
+        assert not self.config.test
         start_epoch = 0
         if self.config.resume:
             arg = self.load()
