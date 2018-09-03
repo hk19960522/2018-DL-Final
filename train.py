@@ -1,22 +1,23 @@
 import argparse
 import os
 
-import torch
-import torch.optim as optim
-import torch.nn.functional as F
 import numpy as np
+import torch.optim as optim
 
-from pprint import pprint
-from model import *
-from config import Config
 from DataLoader import get_data_loader
+from model import *
 
 
 class CIDNN_Training:
     def __init__(self, config):
         # prepare data
         self.config = config
-        self.dataloader = get_data_loader('deathCircle_01.txt', config=self.config)
+        self.dataloader = get_data_loader(self.config.coord_filename,
+                                          self.config.input_frame,
+                                          self.config.target_frame,
+                                          self.config.pedestrian_num,
+                                          self.config.sample_rate,
+                                          self.config.batch_size)
         self.motionEncoder = MotionEncoder(self.config.pedestrian_num,
                                            self.config.n_layers,
                                            self.config.input_size,
@@ -30,9 +31,12 @@ class CIDNN_Training:
         self.displaceDecoder = DisplacementPrediction(self.config.pedestrian_num,
                                                       self.config.hidden_size,
                                                       self.config.target_size)
-        self.optim_ME = optim.Adam(self.motionEncoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
-        self.optim_LE = optim.Adam(self.locationEncoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
-        self.optim_DD = optim.Adam(self.displaceDecoder.parameters(), lr=self.config.lr, weight_decay=self.config.weight_decay)
+        self.optim_ME = optim.Adam(self.motionEncoder.parameters(),
+                                   lr=self.config.lr, weight_decay=self.config.weight_decay)
+        self.optim_LE = optim.Adam(self.locationEncoder.parameters(),
+                                   lr=self.config.lr, weight_decay=self.config.weight_decay)
+        self.optim_DD = optim.Adam(self.displaceDecoder.parameters(),
+                                   lr=self.config.lr, weight_decay=self.config.weight_decay)
 
         self.train_loss_series = []
 
@@ -94,13 +98,12 @@ class CIDNN_Training:
 
         return loss.item()
 
-    def test(self, input_, target_):
-        ret, _ = self.main_step(input_, target_)
-        return ret
+    def test(self):
+        pass
 
     def main(self):
         start_epoch = 0
-        if config.resume:
+        if self.config.resume:
             arg = self.load()
             if arg is not None and 'epoch' in args:
                 start_epoch = arg['epoch']
@@ -121,46 +124,62 @@ class CIDNN_Training:
                 print('Epoch %d Average Loss : %f' % (epoch, avg))
                 self.train_loss_series.append(avg)
                 if min_loss > avg:
-                    self.save()
+                    self.save(epoch=epoch)
                     min_loss = avg
             except KeyboardInterrupt:
                 print('KeyboardInterrupt')
-                self.save(dir_path='./weights/interrupt/')
+                # self.save(dir_path='./weights/interrupt/', epoch=epoch)
                 exit(0)
 
-    def save(self, dir_path='./weights/', **args):
-        print(args)
+    def save(self, dir_path='./weights/', **save_dict):
         if not os.path.exists(dir_path):
             os.mkdir(dir_path)
-        args['motionEncoder'] = self.motionEncoder.state_dict()
-        args['locationEncoder'] = self.locationEncoder.state_dict()
-        args['displaceDecoder'] = self.displaceDecoder.state_dict()
-        args['train_loss_series'] = self.train_loss_series
-        torch.save(args, dir_path + 'model.pkl')
+        save_dict['motionEncoder'] = self.motionEncoder.state_dict()
+        save_dict['locationEncoder'] = self.locationEncoder.state_dict()
+        save_dict['displaceDecoder'] = self.displaceDecoder.state_dict()
+        save_dict['train_loss_series'] = self.train_loss_series
+        torch.save(save_dict, dir_path + self.config.name + '.pkl')
 
     def load(self, dir_path='./weights/'):
-        dir_path += 'model.pkl'
+        dir_path += self.config.name + '.pkl'
         if not os.path.exists(dir_path):
-            return None
-        args = torch.load(dir_path)
-        self.motionEncoder.load_state_dict(args['motionEncoder'])
-        self.locationEncoder.load_state_dict(args['locationEncoder'])
-        self.displaceDecoder.load_state_dict(args['displaceDecoder'])
-        self.train_loss_series = args['train_loss_series']
-        print('model loaded from %s' % dir_path, args)
+            print('File %s not found.'.format(dir_path))
+            exit(0)
+        save_dict = torch.load(dir_path)
+        self.motionEncoder.load_state_dict(save_dict['motionEncoder'])
+        self.locationEncoder.load_state_dict(save_dict['locationEncoder'])
+        self.displaceDecoder.load_state_dict(save_dict['displaceDecoder'])
+        self.train_loss_series = save_dict['train_loss_series']
+        print('model loaded from %s' % dir_path)
         return args
 
 
 if __name__ == '__main__':
     torch.backends.cudnn.enabled = False
     parser = argparse.ArgumentParser(description='CIDNN training')
+    parser.add_argument('--name', default='model')
     parser.add_argument('--resume', '-r', action='store_true')
-    parser.add_argument('--epochs', '-e', default=10000)
-    args = parser.parse_args()
+    parser.add_argument('--n_epochs', '-e', default=10000)
+    parser.add_argument('--test', '-t', action='store_true')
 
-    config = Config()
-    config.n_epochs = args.epochs
-    config.resume = args.resume
-    cidnn = CIDNN_Training(config)
-    cidnn.main()
+    parser.add_argument('--pedestrian_num', default=20)
+    parser.add_argument('--hidden_size', default=128)
+    parser.add_argument('--sample_rate', default=20, help='frame sampling stride')
+    parser.add_argument('--coord_filename', default='./dataset/test.txt')
+    parser.add_argument('--video_filename', default='./dataset/video.mov')
+    parser.add_argument('--input_frame', default=5)
+    parser.add_argument('--input_size', default=5)
+    parser.add_argument('--n_layers', default=1)
+    parser.add_argument('--target_frame', default=5)
+    parser.add_argument('--target_size', default=2)
+    parser.add_argument('--lr', default=2e-3)
+    parser.add_argument('--weight_decay', default=5e-3)
+    parser.add_argument('--batch_size', default=1000)
+
+    args = parser.parse_args()
+    cidnn = CIDNN_Training(args)
+    if args.test:
+        cidnn.test()
+    else:
+        cidnn.main()
 
