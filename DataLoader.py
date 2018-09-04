@@ -57,7 +57,7 @@ def get_one_hot(label):
     return one_hot
 
 
-def get_data_loader(path, train_frame, target_frame, pedestrian_num, sample_rate, batch_size=1000):
+def get_data_loader(path, train_frame, target_frame, pedestrian_num, sample_rate):
     def to_row(ss):
         if len(ss) < train_frame + target_frame or len(ss[0]) < pedestrian_num:
             return None
@@ -109,11 +109,55 @@ def get_data_loader(path, train_frame, target_frame, pedestrian_num, sample_rate
     return sample_train, sample_target, sample_frame
 
 
+def get_cuhk_data(dir, train_frame, target_frame, pedestrian_num):    # load data
+    def get_frames(time_dict, interval):
+        frame = []
+        first = int(min(time_dict))
+        for i in range(0, interval * 20, 20):
+            if str(i + first) in time_dict:
+                frame.append(i + first)
+        return frame if len(frame) is interval else None
+
+    id_dict = {}
+    for filename in os.listdir(dir):
+        time_dict = {}
+        with open(os.path.join(dir, filename)) as f:
+            lines = f.read().replace('\n', ' ').split(' ')[:-1]
+            if len(lines) % 3 is not 0:
+                print('ignore file %s' % filename)
+                continue
+            for i in range(0, len(lines), 3):
+                t = lines[i+2]
+                x, y = int(lines[i]), int(lines[i+1])
+                time_dict[t] = [x, y]
+        fname = str(int(filename.split('.')[0]))
+        id_dict[fname] = time_dict
+
+    train, test, sample_frame = [], [], []
+    for fname in id_dict:
+        frames = get_frames(id_dict[fname], train_frame + target_frame)
+        if frames is None:
+            continue
+        data = []
+        for time_dict in id_dict.values():
+            if all([str(f) in time_dict for f in frames]):
+                data.append([time_dict[str(ff)] for ff in frames])
+            if len(data) is pedestrian_num:
+                break
+        if len(data) is not pedestrian_num:
+            continue
+        # print(len(data), end=' ')
+        data = torch.FloatTensor(data)
+        train.append(data[:, :train_frame])
+        test.append(data[:, -target_frame:])
+        sample_frame.append(frames[train_frame-1])
+    train = torch.cat(train)
+    test = torch.cat(test)
+    print('Data loaded.')
+    return train, test, sample_frame
+
+
 if __name__ == '__main__':
-    d1, d2 = get_data_loader('test.txt', 5, 5, 20, 20, return_frame=True)
-    print(len(d1), len(d2))
-    for (a, b), c in zip(d1, d2):
-        print(a.size(), a[0])
-        print(b.size(), b[0])
-        print(c)
-        break
+    d1, d2, d3 = get_cuhk_data('./dataset/Annotation/', 5, 5, 20)
+    print(d1.size(), d2.size(), len(d3))
+    torch.save((d1, d2, d3), './dataset/AnnotationDataset.pkl')
