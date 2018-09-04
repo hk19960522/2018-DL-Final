@@ -151,8 +151,8 @@ def get_cuhk_data(dir, train_frame, target_frame, pedestrian_num):    # load dat
         train.append(data[:, :train_frame])
         test.append(data[:, -target_frame:])
         sample_frame.append(frames[train_frame-1])
-    train = torch.cat(train)
-    test = torch.cat(test)
+    train = torch.stack(train)
+    test = torch.stack(test)
     print('Data loaded.')
     return train, test, sample_frame
 
