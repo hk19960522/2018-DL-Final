@@ -128,7 +128,7 @@ def get_cuhk_data(dir, train_frame, target_frame, pedestrian_num):    # load dat
                 continue
             for i in range(0, len(lines), 3):
                 t = lines[i+2]
-                x, y = int(lines[i]), int(lines[i+1])
+                x, y = float(lines[i]) / 1920, float(lines[i+1]) / 1080
                 time_dict[t] = [x, y]
         fname = str(int(filename.split('.')[0]))
         id_dict[fname] = time_dict

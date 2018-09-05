@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
 from DataLoader import get_data_loader
-from draw import show_result
+from draw import *
 from model import *
 
 
@@ -15,12 +15,7 @@ class CIDNN_Training:
         # prepare data
         self.config = config
         self.sample_input, self.sample_target, self.sample_frame = \
-            get_data_loader(self.config.coord_filename,
-                            self.config.input_frame,
-                            self.config.target_frame,
-                            self.config.pedestrian_num,
-                            self.config.sample_rate,
-                            self.config.batch_size)
+            torch.load(config.coord_filename)
         data = TensorDataset(self.sample_input, self.sample_target)
         self.dataloader = DataLoader(data, batch_size=self.config.batch_size)
         self.motionEncoder = MotionEncoder(self.config.pedestrian_num,
@@ -72,8 +67,12 @@ class CIDNN_Training:
             motion, hidden = self.motionEncoder(target, hidden)
             # crowd = self.crowdInteraction(location, motion)
             displacement = self.displaceDecoder(torch.bmm(location, motion))
-
-            displacement = torch.cat((displacement, target[:, :, 2:]), dim=2)
+            if target.size(2) > displacement.size(2):
+                displacement = torch.cat((displacement,
+                                          torch.zeros(displacement.size(0),
+                                                      displacement.size(1),
+                                                      target.size(2) - displacement.size(2)).cuda()),
+                                         dim=2)
             target = target + displacement
             prediction_traces.append(target)
 
@@ -100,7 +99,6 @@ class CIDNN_Training:
         self.optim_ME.step()
         self.optim_LE.step()
         self.optim_DD.step()
-
         return loss.item()
 
     def test(self):
@@ -108,15 +106,15 @@ class CIDNN_Training:
         self.load()
         inp_list, tar_list, pre_list = [], [], []
         for inp, tar in self.dataloader:
+            # cat = torch.zeros(inp.size(0), inp.size(1), inp.size(2), 3).cuda()
             inp = inp.float().cuda()
             tar = tar.float().cuda()
             _, prediction = self.main_step(inp, tar)
             pre_list.append(prediction.data)
         predict = torch.cat(pre_list).cpu()
 
-        show_result(self.config.video_filename,
-                    self.sample_frame,
-                    self.sample_input, self.sample_target, predict)
+        show_CUHK(self.config.video_filename,
+                  self.sample_input, self.sample_target, predict, self.sample_frame)
 
     def main(self):
         assert not self.config.test
@@ -157,6 +155,7 @@ class CIDNN_Training:
         save_dict['displaceDecoder'] = self.displaceDecoder.state_dict()
         save_dict['train_loss_series'] = self.train_loss_series
         torch.save(save_dict, dir_path + self.config.name + '.pkl')
+        print('save model to %s'.format(dir_path))
 
     def load(self, dir_path='./weights/'):
         dir_path += self.config.name + '.pkl'
@@ -181,12 +180,12 @@ if __name__ == '__main__':
     parser.add_argument('--test', '-t', action='store_true')
 
     parser.add_argument('--pedestrian_num', default=20)
-    parser.add_argument('--hidden_size', default=128)
+    parser.add_argument('--hidden_size', default=256)
     parser.add_argument('--sample_rate', default=20, help='frame sampling stride')
-    parser.add_argument('--coord_filename', default='./dataset/test.txt')
-    parser.add_argument('--video_filename', default='./dataset/video.mov')
+    parser.add_argument('--coord_filename', default='./dataset/AnnotationDataset.pkl')
+    parser.add_argument('--video_filename', default='./dataset/Frame/')
     parser.add_argument('--input_frame', default=5)
-    parser.add_argument('--input_size', default=5)
+    parser.add_argument('--input_size', default=2)
     parser.add_argument('--n_layers', default=1)
     parser.add_argument('--target_frame', default=5)
     parser.add_argument('--target_size', default=2)
